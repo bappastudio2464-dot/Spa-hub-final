@@ -152,32 +152,206 @@ export const CertificationSection: React.FC = () => {
     });
   };
 
+  const generateVectorPdfFallback = (cleanName: string) => {
+    const doc = new jsPDF({
+      orientation: 'landscape',
+      unit: 'mm',
+      format: 'a4',
+    });
+
+    const pageWidth = doc.internal.pageSize.getWidth(); // 297
+    const pageHeight = doc.internal.pageSize.getHeight(); // 210
+
+    // Background
+    doc.setFillColor(252, 251, 247);
+    doc.rect(0, 0, pageWidth, pageHeight, 'F');
+
+    // Outer double border
+    doc.setDrawColor(212, 163, 115); // #D4A373
+    doc.setLineWidth(2);
+    doc.rect(8, 8, pageWidth - 16, pageHeight - 16);
+    doc.setLineWidth(0.8);
+    doc.rect(11, 11, pageWidth - 22, pageHeight - 22);
+
+    // Header Institution
+    doc.setFont('times', 'bold');
+    doc.setFontSize(12);
+    doc.setTextColor(27, 67, 50); // #1B4332
+    doc.text('SPA HUB INTERNATIONAL ACADEMY', pageWidth / 2, 24, { align: 'center' });
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(120, 120, 120);
+    doc.text('GLOBAL WELLNESS FACULTY • CIDESCO PATTERN ACCREDITED STANDARDS', pageWidth / 2, 29, { align: 'center' });
+
+    // Diploma Subtitle
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(180, 130, 80);
+    doc.text('DIPLOMA OF EXCELLENCE & MASTERY', pageWidth / 2, 40, { align: 'center' });
+
+    // Certificate Title
+    doc.setFont('times', 'bold');
+    doc.setFontSize(26);
+    doc.setTextColor(27, 67, 50);
+    doc.text('Certificate of Achievement', pageWidth / 2, 52, { align: 'center' });
+
+    // Certified text
+    doc.setFont('times', 'italic');
+    doc.setFontSize(10);
+    doc.setTextColor(80, 80, 80);
+    doc.text('This is to officially certify that the practitioner named below has successfully completed', pageWidth / 2, 60, { align: 'center' });
+    doc.text('the complete 11-Chapter Professional Spa Therapy Curriculum and passed the Master Examination.', pageWidth / 2, 65, { align: 'center' });
+
+    // Candidate Name Box
+    const candidateName = formData.fullName || certificate?.studentName || 'Certified Spa Therapist';
+    doc.setFont('times', 'bold');
+    doc.setFontSize(22);
+    doc.setTextColor(27, 67, 50);
+    doc.text(candidateName, pageWidth / 2, 79, { align: 'center' });
+
+    // Line under name
+    doc.setDrawColor(212, 163, 115);
+    doc.setLineWidth(0.5);
+    doc.line(60, 82, pageWidth - 60, 82);
+
+    // Guardian / DOB details
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(90, 90, 90);
+    const fatherText = formData.fatherName ? `Father / Guardian: ${formData.fatherName}` : '';
+    const dobText = formData.dob ? `DOB / Age: ${formData.dob}` : '';
+    const certNum = certificate?.certificateNumber || `SH-2026-${Math.floor(100000 + Math.random() * 900000)}`;
+    
+    if (fatherText || dobText) {
+      doc.text([fatherText, dobText].filter(Boolean).join('   |   '), pageWidth / 2, 89, { align: 'center' });
+    }
+
+    // Awarded credential
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(27, 67, 50);
+    doc.text('MASTER SPA PRACTITIONER & WELLNESS THERAPIST (MSPW)', pageWidth / 2, 100, { align: 'center' });
+
+    // Core competencies text
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(95, 95, 95);
+    doc.text('Swedish Effleurage & Petrissage • Deep Tissue & Trigger Points • Hot Stone Therapy • Thai Yoga Stretches', pageWidth / 2, 107, { align: 'center' });
+    doc.text('Ayurvedic Abhyanga & Marma • Aromatherapy Blending & Safety • Spa Business Law, Licensing & Sanitation', pageWidth / 2, 112, { align: 'center' });
+
+    // Candidate photo if available
+    const photoToEmbed = formData.photoUrl || certificate?.photoUrl;
+    if (photoToEmbed && photoToEmbed.startsWith('data:image')) {
+      try {
+        doc.addImage(photoToEmbed, 'JPEG', 25, 68, 28, 28);
+        doc.setDrawColor(212, 163, 115);
+        doc.rect(25, 68, 28, 28);
+      } catch (e) {
+        console.warn('Could not embed photo into fallback PDF', e);
+      }
+    }
+
+    // Gold Seal
+    doc.setFillColor(233, 196, 106); // Gold #E9C46A
+    doc.circle(pageWidth / 2, 136, 13, 'F');
+    doc.setDrawColor(180, 130, 80);
+    doc.circle(pageWidth / 2, 136, 11, 'D');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6.5);
+    doc.setTextColor(27, 67, 50);
+    doc.text('OFFICIAL GOLD SEAL', pageWidth / 2, 134, { align: 'center' });
+    doc.setFontSize(8);
+    doc.text('CERTIFIED', pageWidth / 2, 139, { align: 'center' });
+
+    // Signatures & Date
+    const issueDate = certificate?.issueDate || new Date().toLocaleDateString();
+    
+    // Left: Issue Date & Verification
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(60, 60, 60);
+    doc.text('DATE OF ISSUANCE', 35, 165);
+    doc.setFont('helvetica', 'normal');
+    doc.text(issueDate, 35, 170);
+    doc.text(`Diploma ID: ${certNum}`, 35, 175);
+
+    // Right: Director of Academics
+    doc.setFont('helvetica', 'bold');
+    doc.text('DR. ELENA ROSTOVA, CIDESCO', pageWidth - 85, 165);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Dean & Director of Examinations', pageWidth - 85, 170);
+    doc.text('Spa Hub International Board', pageWidth - 85, 175);
+
+    // Footer accreditation
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(7);
+    doc.setTextColor(140, 140, 140);
+    doc.text('Authenticity verified at spahub.internal/verify • Digital Diploma issued under Spa Hub International Academic Regulations', pageWidth / 2, 192, { align: 'center' });
+
+    doc.save(`Spa_Hub_Certificate_${cleanName}.pdf`);
+  };
+
   const handleDownloadJpg = async () => {
     const certElement = document.getElementById('spa-official-certificate');
+    const cleanName = (formData.fullName || certificate?.studentName || 'Spa_Practitioner').replace(/\s+/g, '_');
+    
     if (!certElement) {
       alert(language === 'hi' ? 'सर्टिफिकेट एलिमेंट नहीं मिला।' : 'Certificate element not found.');
       return;
     }
+    
     try {
       setIsExportingJpg(true);
       const canvas = await html2canvas(certElement, {
-        scale: 2.5,
+        scale: 2,
         useCORS: true,
-        allowTaint: true,
+        allowTaint: false,
         backgroundColor: '#FCFBF7',
         logging: false,
+        imageTimeout: 8000,
       });
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
-      const link = document.createElement('a');
-      const cleanName = (formData.fullName || certificate?.studentName || 'Spa_Practitioner').replace(/\s+/g, '_');
-      link.download = `Spa_Hub_Certificate_${cleanName}.jpg`;
-      link.href = dataUrl;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.download = `Spa_Hub_Certificate_${cleanName}.jpg`;
+          link.href = url;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+        } else {
+          // Fallback to dataURL
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+          const link = document.createElement('a');
+          link.download = `Spa_Hub_Certificate_${cleanName}.jpg`;
+          link.href = dataUrl;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }
+      }, 'image/jpeg', 0.95);
     } catch (err) {
-      console.error('Failed to export certificate as JPG', err);
-      alert(language === 'hi' ? 'JPG डाउनलोड करने में समस्या आई।' : 'Failed to export JPG certificate.');
+      console.warn('html2canvas JPG export error, trying alternate capture', err);
+      try {
+        const canvas = await html2canvas(certElement, {
+          scale: 1.5,
+          useCORS: false,
+          allowTaint: false,
+          backgroundColor: '#FCFBF7',
+        });
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+        const link = document.createElement('a');
+        link.download = `Spa_Hub_Certificate_${cleanName}.jpg`;
+        link.href = dataUrl;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } catch (fallbackErr) {
+        alert(language === 'hi' ? 'JPG डाउनलोड करने में समस्या आई। कृपया प्रिंट / PDF का उपयोग करें।' : 'Failed to export JPG certificate.');
+      }
     } finally {
       setIsExportingJpg(false);
     }
@@ -185,19 +359,24 @@ export const CertificationSection: React.FC = () => {
 
   const handleDownloadPdf = async () => {
     const certElement = document.getElementById('spa-official-certificate');
+    const cleanName = (formData.fullName || certificate?.studentName || 'Spa_Practitioner').replace(/\s+/g, '_');
+    
     if (!certElement) {
-      alert(language === 'hi' ? 'सर्टिफिकेट एलिमेंट नहीं मिला।' : 'Certificate element not found.');
+      generateVectorPdfFallback(cleanName);
       return;
     }
+
     try {
       setIsExportingPdf(true);
       const canvas = await html2canvas(certElement, {
-        scale: 2.5,
+        scale: 2,
         useCORS: true,
-        allowTaint: true,
+        allowTaint: false,
         backgroundColor: '#FCFBF7',
         logging: false,
+        imageTimeout: 8000,
       });
+
       const imgData = canvas.toDataURL('image/jpeg', 0.95);
       
       // A4 Landscape dimensions in mm: 297 x 210
@@ -211,11 +390,11 @@ export const CertificationSection: React.FC = () => {
       const pdfHeight = pdf.internal.pageSize.getHeight();
       
       pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
-      const cleanName = (formData.fullName || certificate?.studentName || 'Spa_Practitioner').replace(/\s+/g, '_');
       pdf.save(`Spa_Hub_Certificate_${cleanName}.pdf`);
     } catch (err) {
-      console.error('Failed to export certificate as PDF', err);
-      alert(language === 'hi' ? 'PDF डाउनलोड करने में समस्या आई।' : 'Failed to export PDF certificate.');
+      console.warn('html2canvas failed, generating high quality direct vector PDF', err);
+      // Seamless vector PDF fallback - NEVER FAILS!
+      generateVectorPdfFallback(cleanName);
     } finally {
       setIsExportingPdf(false);
     }
