@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useCourse } from '../context/CourseContext';
 import { chaptersData } from '../data/chaptersData';
+import { ChapterCustomPhotos } from './ChapterCustomPhotos';
 import { 
   BookOpen, 
   CheckCircle2, 
@@ -606,6 +607,13 @@ export const EBookSection: React.FC = () => {
                 );
               })}
             </div>
+
+            {/* Custom Chapter Photos & Gallery Upload Vault */}
+            <ChapterCustomPhotos
+              chapterId={currentChapter.id}
+              chapterNumber={currentChapter.chapterNumber}
+              chapterTitle={language === 'hi' ? currentChapter.titleHi : currentChapter.title}
+            />
 
             {/* Practical Hands-On Assignment Checklist */}
             <div className="mt-12 p-6 rounded-2xl bg-gradient-to-br from-[#2D6A4F]/10 via-[#52B788]/10 to-[#D4A373]/10 border border-[#2D6A4F]/20 space-y-4">

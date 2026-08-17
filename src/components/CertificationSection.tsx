@@ -2,6 +2,8 @@ import React, { useState, useRef } from 'react';
 import { useCourse } from '../context/CourseContext';
 import { certificationExamQuestions } from '../data/examData';
 import confetti from 'canvas-confetti';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 import { 
   Award, 
   CheckCircle2, 
@@ -22,7 +24,12 @@ import {
   Share2,
   FileCheck,
   Building2,
-  Lock
+  Lock,
+  Camera,
+  Upload,
+  FileDown,
+  Loader2,
+  Trash2
 } from 'lucide-react';
 import { StudentProfile } from '../types';
 
@@ -45,6 +52,10 @@ export const CertificationSection: React.FC = () => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(0);
   const [userAnswers, setUserAnswers] = useState<Record<string, number>>({});
   
+  // Export loading states
+  const [isExportingJpg, setIsExportingJpg] = useState<boolean>(false);
+  const [isExportingPdf, setIsExportingPdf] = useState<boolean>(false);
+
   // Profile form state
   const [formData, setFormData] = useState<StudentProfile>({
     fullName: studentProfile?.fullName || certificate?.studentName || '',
@@ -57,6 +68,7 @@ export const CertificationSection: React.FC = () => {
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const reviewPhotoInputRef = useRef<HTMLInputElement>(null);
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -138,6 +150,75 @@ export const CertificationSection: React.FC = () => {
       spread: 70,
       origin: { y: 0.6 },
     });
+  };
+
+  const handleDownloadJpg = async () => {
+    const certElement = document.getElementById('spa-official-certificate');
+    if (!certElement) {
+      alert(language === 'hi' ? 'सर्टिफिकेट एलिमेंट नहीं मिला।' : 'Certificate element not found.');
+      return;
+    }
+    try {
+      setIsExportingJpg(true);
+      const canvas = await html2canvas(certElement, {
+        scale: 2.5,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#FCFBF7',
+        logging: false,
+      });
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+      const link = document.createElement('a');
+      const cleanName = (formData.fullName || certificate?.studentName || 'Spa_Practitioner').replace(/\s+/g, '_');
+      link.download = `Spa_Hub_Certificate_${cleanName}.jpg`;
+      link.href = dataUrl;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      console.error('Failed to export certificate as JPG', err);
+      alert(language === 'hi' ? 'JPG डाउनलोड करने में समस्या आई।' : 'Failed to export JPG certificate.');
+    } finally {
+      setIsExportingJpg(false);
+    }
+  };
+
+  const handleDownloadPdf = async () => {
+    const certElement = document.getElementById('spa-official-certificate');
+    if (!certElement) {
+      alert(language === 'hi' ? 'सर्टिफिकेट एलिमेंट नहीं मिला।' : 'Certificate element not found.');
+      return;
+    }
+    try {
+      setIsExportingPdf(true);
+      const canvas = await html2canvas(certElement, {
+        scale: 2.5,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#FCFBF7',
+        logging: false,
+      });
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      
+      // A4 Landscape dimensions in mm: 297 x 210
+      const pdf = new jsPDF({
+        orientation: 'landscape',
+        unit: 'mm',
+        format: 'a4',
+      });
+      
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      
+      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
+      const cleanName = (formData.fullName || certificate?.studentName || 'Spa_Practitioner').replace(/\s+/g, '_');
+      pdf.save(`Spa_Hub_Certificate_${cleanName}.pdf`);
+    } catch (err) {
+      console.error('Failed to export certificate as PDF', err);
+      alert(language === 'hi' ? 'PDF डाउनलोड करने में समस्या आई।' : 'Failed to export PDF certificate.');
+    } finally {
+      setIsExportingPdf(false);
+    }
   };
 
   const handlePrint = () => {
@@ -602,33 +683,93 @@ export const CertificationSection: React.FC = () => {
           {/* CANDIDATE DETAIL UPDATE FORM & LUXURY PRINTABLE CERTIFICATE */}
           <div className="space-y-8">
             
-            {/* Form to edit certificate details if needed */}
-            <div className="bg-white dark:bg-stone-900 p-6 rounded-3xl border border-stone-200 dark:border-stone-800 shadow-sm">
-              <h3 className="text-lg font-bold text-stone-900 dark:text-stone-100 mb-4 flex items-center gap-2">
-                <FileCheck className="w-5 h-5 text-emerald-600" />
-                {language === 'hi' ? 'सर्टिफिकेट पर नाम व विवरण संशोधित करें' : 'Update Certificate Details & Photo'}
-              </h3>
+            {/* Form to edit certificate details & photo */}
+            <div className="bg-white dark:bg-stone-900 p-6 sm:p-8 rounded-3xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-stone-100 dark:border-stone-800 pb-4">
+                <div>
+                  <h3 className="text-lg font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
+                    <FileCheck className="w-5 h-5 text-emerald-600" />
+                    {language === 'hi' ? 'सर्टिफिकेट कस्टमाइज़ेशन व फोटो आयात' : 'Customize Certificate Details & Photo'}
+                  </h3>
+                  <p className="text-xs text-stone-500 mt-0.5">
+                    {language === 'hi'
+                      ? 'अपनी फोटो, नाम, पिता का नाम या जन्मतिथि बदलें और सर्टिफिकेट पर तुरंत लाइव देखें।'
+                      : 'Customize your photo, candidate name, guardian, or DOB to update the official diploma.'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Photo Import Section */}
+              <div className="p-4 rounded-2xl bg-stone-50 dark:bg-stone-800/60 border border-stone-200 dark:border-stone-700 flex flex-col sm:flex-row items-center gap-5">
+                <div className="w-20 h-20 rounded-2xl overflow-hidden bg-stone-200 dark:bg-stone-700 border-2 border-emerald-500 flex items-center justify-center shrink-0 shadow-inner">
+                  {formData.photoUrl ? (
+                    <img src={formData.photoUrl} alt="Candidate Preview" className="w-full h-full object-cover" />
+                  ) : (
+                    <User className="w-8 h-8 text-stone-400" />
+                  )}
+                </div>
+
+                <div className="space-y-1.5 text-center sm:text-left flex-1">
+                  <div className="text-xs font-bold uppercase tracking-wider text-stone-700 dark:text-stone-300">
+                    {language === 'hi' ? 'सर्टिफिकेट पासपोर्ट फोटो' : 'Candidate Diploma Photo'}
+                  </div>
+                  <p className="text-xs text-stone-500 dark:text-stone-400">
+                    {language === 'hi'
+                      ? 'फोन गैलरी से अपनी फोटो चुनें ताकि सर्टिफिकेट पर आपकी फोटो दिखे।'
+                      : 'Import photo from your phone gallery to stamp your face on the official certificate.'}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2 pt-1 justify-center sm:justify-start">
+                    <input
+                      type="file"
+                      ref={reviewPhotoInputRef}
+                      onChange={handlePhotoUpload}
+                      accept="image/*"
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => reviewPhotoInputRef.current?.click()}
+                      className="px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold rounded-xl transition flex items-center gap-1.5 shadow-xs"
+                    >
+                      <Camera className="w-3.5 h-3.5" />
+                      <span>{formData.photoUrl ? (language === 'hi' ? 'गैलरी से फोटो बदलें' : 'Change Photo') : (language === 'hi' ? 'गैलरी से फोटो लगाएं' : 'Import Photo from Gallery')}</span>
+                    </button>
+                    {formData.photoUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setFormData(prev => ({ ...prev, photoUrl: '' }))}
+                        className="px-3 py-1.5 bg-stone-200 dark:bg-stone-700 hover:bg-red-100 hover:text-red-700 text-stone-600 dark:text-stone-300 text-xs font-semibold rounded-xl transition flex items-center gap-1"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>{language === 'hi' ? 'फोटो हटाएं' : 'Remove'}</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Text Fields Form */}
               <form onSubmit={handleUpdateCertificateDetails} className="grid grid-cols-1 sm:grid-cols-4 gap-4">
                 <div>
                   <label className="text-xs font-semibold text-stone-600 dark:text-stone-400 block mb-1">
-                    {language === 'hi' ? 'पूरा नाम' : 'Full Name'}
+                    {language === 'hi' ? 'उम्मीदवार का नाम' : 'Candidate Name'}
                   </label>
                   <input
                     type="text"
                     value={formData.fullName}
                     onChange={e => setFormData({ ...formData, fullName: e.target.value })}
-                    className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 outline-none"
+                    className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 outline-none"
                   />
                 </div>
                 <div>
                   <label className="text-xs font-semibold text-stone-600 dark:text-stone-400 block mb-1">
-                    {language === 'hi' ? 'पिता का नाम' : 'Father’s Name'}
+                    {language === 'hi' ? 'पिता / अभिभावक का नाम' : 'Father’s Name'}
                   </label>
                   <input
                     type="text"
                     value={formData.fatherName}
                     onChange={e => setFormData({ ...formData, fatherName: e.target.value })}
-                    className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 outline-none"
+                    className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 outline-none"
                   />
                 </div>
                 <div>
@@ -640,36 +781,86 @@ export const CertificationSection: React.FC = () => {
                     value={formData.dob ? `${formData.dob} (${formData.age ? `${formData.age} Yrs` : ''})` : formData.age || ''}
                     onChange={e => setFormData({ ...formData, dob: e.target.value })}
                     placeholder="YYYY-MM-DD"
-                    className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 outline-none"
+                    className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 outline-none"
                   />
                 </div>
                 <div className="flex items-end">
                   <button
                     type="submit"
-                    className="w-full py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-sm rounded-xl transition-all shadow-sm"
+                    className="w-full py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-sm rounded-xl transition-all shadow-sm flex items-center justify-center gap-1.5"
                   >
-                    {language === 'hi' ? 'सर्टिफिकेट अपडेट करें' : 'Update Certificate'}
+                    <Check className="w-4 h-4" />
+                    <span>{language === 'hi' ? 'सर्टिफिकेट अपडेट करें' : 'Update Certificate'}</span>
                   </button>
                 </div>
               </form>
             </div>
 
-            {/* Action Buttons (Print / Download) */}
-            <div className="flex flex-wrap items-center justify-between gap-4 p-4 bg-emerald-50 dark:bg-emerald-950/40 rounded-2xl border border-emerald-200 dark:border-emerald-800/60">
-              <div className="flex items-center gap-3">
-                <Award className="w-6 h-6 text-emerald-700 dark:text-emerald-400" />
-                <span className="text-sm font-bold text-emerald-900 dark:text-emerald-200">
-                  {language === 'hi' ? 'आधिकारिक CIDESCO पैटर्न स्पा डिप्लोमा' : 'Official Gold-Sealed Diploma Issued'}
-                </span>
+            {/* Action Buttons (Download JPG, Download PDF, Print) */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-5 bg-gradient-to-r from-emerald-50 via-[#E9C46A]/20 to-emerald-50 dark:from-emerald-950/40 dark:via-emerald-900/20 dark:to-emerald-950/40 rounded-3xl border border-emerald-200 dark:border-emerald-800/60 shadow-sm">
+              <div className="flex items-center gap-3 text-center sm:text-left">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-700 text-[#E9C46A] flex items-center justify-center shrink-0 shadow-sm">
+                  <Award className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="text-sm font-bold text-emerald-950 dark:text-emerald-100">
+                    {language === 'hi' ? 'सर्टिफिकेट डाउनलोड व सेव ऑप्शन्स' : 'Official Certificate Export'}
+                  </div>
+                  <div className="text-xs text-emerald-700 dark:text-emerald-400">
+                    {language === 'hi' ? 'गैलरी में JPG या फोन स्टोरेज में PDF फॉर्मेट में सेव करें' : 'Save high-res JPG to Gallery or PDF to Phone Storage'}
+                  </div>
+                </div>
               </div>
-              <div className="flex gap-3">
+
+              <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto justify-center">
+                {/* Download JPG Button */}
+                <button
+                  id="btn-download-certificate-jpg"
+                  onClick={handleDownloadJpg}
+                  disabled={isExportingJpg || isExportingPdf}
+                  className="flex-1 sm:flex-initial px-5 py-2.5 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white font-bold text-xs sm:text-sm rounded-2xl shadow-sm hover:shadow transition flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {isExportingJpg ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>{language === 'hi' ? 'JPG बन रहा है...' : 'Generating JPG...'}</span>
+                    </>
+                  ) : (
+                    <>
+                      <ImageIcon className="w-4 h-4" />
+                      <span>{language === 'hi' ? 'JPG डाउनलोड (Gallery)' : 'Download JPG (Gallery)'}</span>
+                    </>
+                  )}
+                </button>
+
+                {/* Download PDF Button */}
+                <button
+                  id="btn-download-certificate-pdf"
+                  onClick={handleDownloadPdf}
+                  disabled={isExportingJpg || isExportingPdf}
+                  className="flex-1 sm:flex-initial px-5 py-2.5 bg-gradient-to-r from-emerald-700 to-emerald-800 hover:from-emerald-800 hover:to-emerald-900 text-white font-bold text-xs sm:text-sm rounded-2xl shadow-sm hover:shadow transition flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {isExportingPdf ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>{language === 'hi' ? 'PDF बन रहा है...' : 'Generating PDF...'}</span>
+                    </>
+                  ) : (
+                    <>
+                      <FileDown className="w-4 h-4" />
+                      <span>{language === 'hi' ? 'PDF डाउनलोड (Storage)' : 'Download PDF (Storage)'}</span>
+                    </>
+                  )}
+                </button>
+
+                {/* Print / Save Dialog Button */}
                 <button
                   id="btn-print-certificate"
                   onClick={handlePrint}
-                  className="px-6 py-2.5 bg-stone-900 dark:bg-white text-white dark:text-stone-900 hover:bg-black font-bold text-sm rounded-xl shadow-md transition-all flex items-center gap-2"
+                  className="px-4 py-2.5 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 hover:bg-black font-semibold text-xs sm:text-sm rounded-2xl shadow-sm transition flex items-center justify-center gap-1.5"
                 >
                   <Printer className="w-4 h-4" />
-                  {language === 'hi' ? 'सर्टिफिकेट प्रिंट / PDF सेव करें' : 'Print / Save PDF'}
+                  <span>{language === 'hi' ? 'प्रिंट' : 'Print'}</span>
                 </button>
               </div>
             </div>

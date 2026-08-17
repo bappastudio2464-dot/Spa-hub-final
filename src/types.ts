@@ -192,7 +192,8 @@ export interface MediaVaultItem {
   id: string;
   title: string;
   description?: string;
-  category: 'Swedish Practice' | 'Deep Tissue' | 'Hot Stone' | 'Thai Stretches' | 'Spa Room Setup' | 'Client Consultation' | 'Certificate & ID' | 'General';
+  category: 'Swedish Practice' | 'Deep Tissue' | 'Hot Stone' | 'Thai Stretches' | 'Spa Room Setup' | 'Client Consultation' | 'Certificate & ID' | 'Chapter Photo' | 'General' | string;
+  chapterId?: string; // ID of the chapter this photo belongs to
   mediaType: 'image' | 'video';
   dataUrl: string; // Base64 data or object URL
   fileName: string;
