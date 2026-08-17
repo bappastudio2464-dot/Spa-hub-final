@@ -32,11 +32,12 @@ jobs:
     - name: Build Web App
       run: npm run build
 
-    - name: Add Capacitor Android
+    - name: Setup Capacitor & Android
       run: |
         npm install @capacitor/core @capacitor/cli @capacitor/android
+        rm -f capacitor.config.ts capacitor.config.json
         npx cap init "Spa Hub" "com.spahub.app" --web-dir dist
-        npx cap add android
+        npx cap add android || true
         npx cap sync
 
     - name: Build APK
