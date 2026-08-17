@@ -16,7 +16,7 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: 18
+        node-version: 20
 
     - name: Setup Java
       uses: actions/setup-java@v4
@@ -24,8 +24,10 @@ jobs:
         distribution: 'zulu'
         java-version: '17'
 
-    - name: Install Dependencies
-      run: npm install
+    - name: Install Dependencies Fix
+      run: |
+        rm -rf node_modules package-lock.json
+        npm install --include=optional
 
     - name: Build Web App
       run: npm run build
