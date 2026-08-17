@@ -1,0 +1,6 @@
+{
+  "name": "Spa Hub",
+  "description": "Professional spa training course platform featuring chapter-wise e-books, video tutorials, anatomy guide, interactive quizzes, and certification.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
