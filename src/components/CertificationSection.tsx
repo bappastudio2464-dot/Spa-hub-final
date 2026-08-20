@@ -928,7 +928,7 @@ export const CertificationSection: React.FC = () => {
               </div>
 
               {/* Text Fields Form */}
-              <form onSubmit={handleUpdateCertificateDetails} className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+              <form onSubmit={handleUpdateCertificateDetails} className="grid grid-cols-1 sm:grid-cols-5 gap-3">
                 <div>
                   <label className="text-xs font-semibold text-stone-600 dark:text-stone-400 block mb-1">
                     {language === 'hi' ? 'उम्मीदवार का नाम' : 'Candidate Name'}
@@ -937,39 +937,52 @@ export const CertificationSection: React.FC = () => {
                     type="text"
                     value={formData.fullName}
                     onChange={e => setFormData({ ...formData, fullName: e.target.value })}
-                    className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 outline-none"
+                    className="w-full px-3 py-2 text-xs sm:text-sm rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 outline-none"
+                    placeholder="Candidate Name"
                   />
                 </div>
                 <div>
                   <label className="text-xs font-semibold text-stone-600 dark:text-stone-400 block mb-1">
-                    {language === 'hi' ? 'पिता / अभिभावक का नाम' : 'Father’s Name'}
+                    {language === 'hi' ? 'पिता / अभिभावक' : 'Father’s Name'}
                   </label>
                   <input
                     type="text"
                     value={formData.fatherName}
                     onChange={e => setFormData({ ...formData, fatherName: e.target.value })}
-                    className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 outline-none"
+                    className="w-full px-3 py-2 text-xs sm:text-sm rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 outline-none"
+                    placeholder="Father's Name"
                   />
                 </div>
                 <div>
                   <label className="text-xs font-semibold text-stone-600 dark:text-stone-400 block mb-1">
-                    {language === 'hi' ? 'जन्म तिथि व उम्र' : 'DOB & Age'}
+                    {language === 'hi' ? 'जन्म तिथि (DOB)' : 'DOB'}
                   </label>
                   <input
-                    type="text"
-                    value={formData.dob ? `${formData.dob} (${formData.age ? `${formData.age} Yrs` : ''})` : formData.age || ''}
+                    type="date"
+                    value={formData.dob || ''}
                     onChange={e => setFormData({ ...formData, dob: e.target.value })}
-                    placeholder="YYYY-MM-DD"
-                    className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 outline-none"
+                    className="w-full px-3 py-2 text-xs sm:text-sm rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-stone-600 dark:text-stone-400 block mb-1">
+                    {language === 'hi' ? 'उम्र (Age)' : 'Age'}
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.age || ''}
+                    onChange={e => setFormData({ ...formData, age: e.target.value })}
+                    placeholder="e.g. 24"
+                    className="w-full px-3 py-2 text-xs sm:text-sm rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 outline-none"
                   />
                 </div>
                 <div className="flex items-end">
                   <button
                     type="submit"
-                    className="w-full py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-sm rounded-xl transition-all shadow-sm flex items-center justify-center gap-1.5"
+                    className="w-full py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs sm:text-sm rounded-xl transition-all shadow-sm flex items-center justify-center gap-1.5"
                   >
                     <Check className="w-4 h-4" />
-                    <span>{language === 'hi' ? 'सर्टिफिकेट अपडेट करें' : 'Update Certificate'}</span>
+                    <span>{language === 'hi' ? 'सर्टिफिकेट अपडेट' : 'Update Certificate'}</span>
                   </button>
                 </div>
               </form>

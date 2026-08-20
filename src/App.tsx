@@ -8,6 +8,9 @@ import { PracticeTimer } from './components/PracticeTimer';
 import { CertificationSection } from './components/CertificationSection';
 import { GlossarySection } from './components/GlossarySection';
 import { MediaVaultSection } from './components/MediaVaultSection';
+import { ReferralSection } from './components/ReferralSection';
+import { AdminPanel } from './components/AdminPanel';
+import { AuthModal } from './components/AuthModal';
 import { Logo } from './components/Logo';
 import { 
   BookOpen, 
@@ -20,20 +23,27 @@ import {
   HelpCircle,
   ShieldCheck,
   Heart,
-  HardDrive
+  HardDrive,
+  Crown,
+  Wallet
 } from 'lucide-react';
 
 const MainContent: React.FC = () => {
-  const { activeTab, setActiveTab, language, totalCourseProgress } = useCourse();
+  const { activeTab, setActiveTab, language, totalCourseProgress, isLoggedIn, isAdmin } = useCourse();
 
   return (
     <div className="min-h-screen bg-[#F7F9F6] flex flex-col font-sans text-stone-800 selection:bg-[#2D6A4F] selection:text-white">
       {/* Top Header & Sticky Navigation */}
       <Header />
 
+      {/* Mandatory Auth Modal when not logged in */}
+      <AuthModal isOpen={!isLoggedIn} />
+
       {/* Main Tab Views Switcher */}
       <main className="flex-1 py-4 sm:py-6">
+        {activeTab === 'admin' && <AdminPanel />}
         {activeTab === 'ebook' && <EBookSection />}
+        {activeTab === 'referral' && <ReferralSection />}
         {activeTab === 'exam' && <CertificationSection />}
         {activeTab === 'vault' && <MediaVaultSection />}
         {activeTab === 'anatomy' && <AnatomyExplorer />}
@@ -67,6 +77,18 @@ const MainContent: React.FC = () => {
                 {language === 'hi' ? 'प्रशिक्षण मॉड्यूल' : 'Training Modules'}
               </h4>
               <ul className="space-y-1.5 text-xs">
+                {isAdmin && (
+                  <li>
+                    <button onClick={() => setActiveTab('admin')} className="text-amber-400 font-bold hover:underline transition text-left">
+                      👑 {language === 'hi' ? 'मास्टर एडमिन कंट्रोल पैनल' : 'Master Admin Panel'}
+                    </button>
+                  </li>
+                )}
+                <li>
+                  <button onClick={() => setActiveTab('referral')} className="hover:text-emerald-400 transition text-left">
+                    🎁 {language === 'hi' ? 'रेफर एवं अर्न वॉलेट (₹300)' : 'Refer & Earn Wallet (₹300)'}
+                  </button>
+                </li>
                 <li>
                   <button onClick={() => setActiveTab('ebook')} className="hover:text-emerald-400 transition text-left">
                     📖 {language === 'hi' ? '11 अध्याय संपूर्ण ई-बुक' : '11-Chapter Illustrated E-Book'}
@@ -80,11 +102,6 @@ const MainContent: React.FC = () => {
                 <li>
                   <button onClick={() => setActiveTab('anatomy')} className="hover:text-emerald-400 transition text-left">
                     🧘 {language === 'hi' ? 'मर्म एवं प्रेशर पॉइंट्स' : 'Pressure Points & Anatomy'}
-                  </button>
-                </li>
-                <li>
-                  <button onClick={() => setActiveTab('aromatherapy')} className="hover:text-emerald-400 transition text-left">
-                    🌿 {language === 'hi' ? 'एसेंशियल ऑयल्स व डायल्यूशन' : 'Essential Oils & Blends'}
                   </button>
                 </li>
               </ul>

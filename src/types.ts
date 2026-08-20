@@ -159,6 +159,87 @@ export interface PracticeLog {
   rating: number;
 }
 
+export type UserRole = 'admin' | 'student';
+export type UserStatus = 'active' | 'pending' | 'blocked';
+
+export interface WalletTransaction {
+  id: string;
+  userId: string;
+  type: 'referral_bonus' | 'admin_credit' | 'admin_debit' | 'admin_reset' | 'payout_withdrawal';
+  amount: number;
+  description: string;
+  referredUserName?: string;
+  referredUserPhone?: string;
+  timestamp: string;
+  date: string;
+}
+
+export interface WithdrawalRequest {
+  id: string;
+  userId: string;
+  userName: string;
+  userPhone: string;
+  amount: number;
+  withdrawalType: 'upi' | 'bank' | 'qr';
+  upiId?: string;
+  accountHolderName?: string;
+  accountNumber?: string;
+  ifscCode?: string;
+  bankName?: string;
+  qrCodeUrl?: string; // Base64 QR Image
+  status: 'pending' | 'approved' | 'rejected';
+  requestDate: string;
+  adminNotes?: string;
+}
+
+export interface ApprovalPaymentRequest {
+  id: string;
+  referrerUserId: string;
+  referrerName: string;
+  referrerPhone: string;
+  candidateName: string;
+  candidatePhone: string;
+  candidateReferralCode?: string;
+  amount: number;
+  utrNumber: string;
+  screenshotUrl?: string; // Base64
+  adminUpiId: string; // tathastuho@ptyes
+  status: 'pending' | 'approved' | 'rejected';
+  submittedAt: string;
+  approvedAt?: string;
+  adminNotes?: string;
+}
+
+export interface AppUser {
+  id: string;
+  phone: string;
+  fullName: string;
+  fatherName?: string;
+  dob?: string;
+  age?: string;
+  gender?: string;
+  role: UserRole;
+  status: UserStatus;
+  registeredAt: string;
+  lastLoginAt: string;
+  city?: string;
+  photoUrl?: string;
+  completedChaptersCount?: number;
+  examPassed?: boolean;
+  examScore?: number;
+  notes?: string;
+  
+  // MLM & Wallet Integration
+  referralCode: string;
+  referredBy?: string; // Referral code or Phone of inviter
+  walletBalance: number; // In Rupees (₹)
+  totalEarned: number; // Total referral income (₹)
+  totalReferralsCount: number;
+  paymentStatus?: 'pending' | 'paid' | 'verified';
+  upiId?: string;
+  bankDetails?: string;
+}
+
 export interface StudentProfile {
   fullName: string;
   fatherName: string;
@@ -167,7 +248,7 @@ export interface StudentProfile {
   gender: string;
   phone: string;
   email: string;
-  photoUrl: string; // Base64 or Blob storage URL
+  photoUrl: string;
   academyName: string;
   city: string;
 }
@@ -193,11 +274,11 @@ export interface MediaVaultItem {
   title: string;
   description?: string;
   category: 'Swedish Practice' | 'Deep Tissue' | 'Hot Stone' | 'Thai Stretches' | 'Spa Room Setup' | 'Client Consultation' | 'Certificate & ID' | 'Chapter Photo' | 'General' | string;
-  chapterId?: string; // ID of the chapter this photo belongs to
+  chapterId?: string;
   mediaType: 'image' | 'video';
-  dataUrl: string; // Base64 data or object URL
+  dataUrl: string;
   fileName: string;
-  fileSize: number; // in bytes
+  fileSize: number;
   createdAt: string;
 }
 
@@ -208,5 +289,3 @@ export interface GlossaryTerm {
   definition: string;
   definitionHi: string;
 }
-
-

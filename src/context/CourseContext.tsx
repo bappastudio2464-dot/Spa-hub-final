@@ -1,10 +1,47 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { Bookmark, UserNote, PracticeLog, CertificateData, Language, StudentProfile, MediaVaultItem } from '../types';
+import { 
+  Bookmark, 
+  UserNote, 
+  PracticeLog, 
+  CertificateData, 
+  Language, 
+  StudentProfile, 
+  MediaVaultItem, 
+  AppUser, 
+  UserRole, 
+  UserStatus,
+  WalletTransaction,
+  WithdrawalRequest,
+  ApprovalPaymentRequest
+} from '../types';
 import { chaptersData } from '../data/chaptersData';
-import { videosData } from '../data/videosData';
 import { getAllMediaItems, saveMediaItem, deleteMediaItem } from '../utils/mediaStorage';
+import { 
+  getCurrentSession, 
+  setCurrentSession, 
+  authenticateWithPhoneAndOtp, 
+  getAllUsers, 
+  updateUserStatusInDb, 
+  updateUserRoleInDb, 
+  deleteUserFromDb, 
+  addOrUpdateUserFromAdmin,
+  adjustUserWalletInDb,
+  resetUserWalletToZero,
+  getAllTransactions,
+  getAllWithdrawals,
+  getAllApprovalPaymentRequests,
+  submitApprovalPaymentRequest,
+  approvePaymentAndActivateCandidateInDb,
+  requestPayoutFromWallet,
+  processWithdrawalRequestInDb,
+  MASTER_ADMIN_PHONE,
+  ADMIN_UPI_ID,
+  normalizePhone
+} from '../utils/authStorage';
+import { db } from '../firebase';
+import { collection, onSnapshot } from 'firebase/firestore';
 
-export type ActiveTabType = 'ebook' | 'anatomy' | 'aromatherapy' | 'practice' | 'exam' | 'vault' | 'glossary';
+export type ActiveTabType = 'ebook' | 'referral' | 'anatomy' | 'aromatherapy' | 'practice' | 'exam' | 'vault' | 'glossary' | 'admin';
 
 interface CourseContextType {
   language: Language;
@@ -16,6 +53,64 @@ interface CourseContextType {
   selectedVideoId: string | null;
   setSelectedVideoId: (id: string | null) => void;
   
+  // Auth & Admin
+  currentUser: AppUser | null;
+  isLoggedIn: boolean;
+  isAdmin: boolean;
+  loginWithPhoneOtp: (phone: string, otp: string, profileData?: any) => { 
+    success: boolean; 
+    message: string; 
+    user?: AppUser; 
+    requiresProfile?: boolean;
+    pendingApproval?: boolean;
+  };
+  logout: () => void;
+  usersList: AppUser[];
+  refreshUsersList: () => void;
+  approveUser: (userId: string) => { success: boolean; referralBonusCredited?: boolean; referrerName?: string };
+  blockUser: (userId: string) => void;
+  unblockUser: (userId: string) => void;
+  deleteUser: (userId: string) => void;
+  toggleUserRole: (userId: string) => void;
+  addUserByAdmin: (user: Partial<AppUser> & { phone: string; fullName: string }) => AppUser;
+
+  // MLM & Wallet State
+  walletBalance: number;
+  totalEarned: number;
+  referralCode: string;
+  myReferrals: AppUser[];
+  walletTransactions: WalletTransaction[];
+  withdrawalRequests: WithdrawalRequest[];
+  approvalPaymentRequests: ApprovalPaymentRequest[];
+  
+  // Candidate activation payment
+  submitApprovalPayment: (data: {
+    candidateName: string;
+    candidatePhone: string;
+    amount: number;
+    utrNumber: string;
+    screenshotUrl?: string;
+  }) => { success: boolean; message: string };
+  adminApprovePaymentAndCandidate: (paymentId: string, notes?: string) => { success: boolean; candidateName?: string; bonusCredited?: boolean };
+  
+  // Payout request
+  requestWithdrawal: (
+    amount: number, 
+    withdrawalType: 'upi' | 'bank' | 'qr', 
+    details: {
+      upiId?: string;
+      accountHolderName?: string;
+      accountNumber?: string;
+      ifscCode?: string;
+      bankName?: string;
+      qrCodeUrl?: string;
+    }
+  ) => { success: boolean; message: string };
+  adminAdjustWallet: (userId: string, change: number, reason: string, exactOverride?: number) => void;
+  adminResetWalletToZero: (userId: string) => void;
+  adminProcessWithdrawal: (requestId: string, status: 'approved' | 'rejected', notes?: string) => void;
+  refreshWalletData: () => void;
+
   completedChapters: string[];
   toggleChapterComplete: (id: string) => void;
   completedVideos: string[];
@@ -40,7 +135,7 @@ interface CourseContextType {
   studentProfile: StudentProfile;
   updateStudentProfile: (profile: Partial<StudentProfile>) => void;
   
-  // 50 Questions Exam Result
+  // Exam Result
   examResult: { 
     score: number; 
     totalQuestions: number;
@@ -78,33 +173,40 @@ interface CourseContextType {
   setIsGlossaryOpen: (open: boolean) => void;
   
   totalProgressPercentage: number;
-  totalCourseProgress: number; // alias
+  totalCourseProgress: number;
   resetAllProgress: () => void;
 }
 
 const CourseContext = createContext<CourseContextType | undefined>(undefined);
 
-const STORAGE_KEY = 'spa_hub_training_state_v1';
+const STORAGE_KEY = 'spa_hub_training_state_v4';
 
-const defaultProfile: StudentProfile = {
-  fullName: 'Pooja Sharma',
-  fatherName: 'Rajesh Sharma',
-  dob: '1998-05-14',
-  age: '26',
-  gender: 'Female',
-  phone: '+91 98765 43210',
-  email: 'pooja.wellness@example.com',
-  photoUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80',
+const blankProfile: StudentProfile = {
+  fullName: '',
+  fatherName: '',
+  dob: '',
+  age: '',
+  gender: '',
+  phone: '',
+  email: '',
+  photoUrl: '',
   academyName: 'Spa Hub International Wellness Academy',
-  city: 'New Delhi / Mumbai',
+  city: '',
 };
 
 export const CourseProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [language, setLanguage] = useState<Language>('en');
+  const [language, setLanguage] = useState<Language>('hi');
   const [activeTab, setActiveTab] = useState<ActiveTabType>('ebook');
   const [selectedChapterId, setSelectedChapterId] = useState<string>('ch-1');
   const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
   
+  // Auth State
+  const [currentUser, setCurrentUser] = useState<AppUser | null>(() => getCurrentSession());
+  const [usersList, setUsersList] = useState<AppUser[]>(() => getAllUsers());
+  const [walletTransactions, setWalletTransactions] = useState<WalletTransaction[]>(() => getAllTransactions());
+  const [withdrawalRequests, setWithdrawalRequests] = useState<WithdrawalRequest[]>(() => getAllWithdrawals());
+  const [approvalPaymentRequests, setApprovalPaymentRequests] = useState<ApprovalPaymentRequest[]>(() => getAllApprovalPaymentRequests());
+
   const [completedChapters, setCompletedChapters] = useState<string[]>([]);
   const [completedVideos, setCompletedVideos] = useState<string[]>([]);
   const [chapterQuizScores, setChapterQuizScores] = useState<Record<string, number>>({});
@@ -112,7 +214,7 @@ export const CourseProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const [notes, setNotes] = useState<UserNote[]>([]);
   const [practiceLogs, setPracticeLogs] = useState<PracticeLog[]>([]);
   
-  const [studentProfile, setStudentProfile] = useState<StudentProfile>(defaultProfile);
+  const [studentProfile, setStudentProfile] = useState<StudentProfile>(blankProfile);
   const [examResult, setExamResult] = useState<{ 
     score: number; 
     totalQuestions: number;
@@ -128,7 +230,30 @@ export const CourseProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isGlossaryOpen, setIsGlossaryOpen] = useState<boolean>(false);
 
-  // Load media items from IndexedDB
+  const isLoggedIn = !!currentUser && currentUser.status === 'active';
+  const isAdmin = !!currentUser && (normalizePhone(currentUser.phone) === MASTER_ADMIN_PHONE || currentUser.role === 'admin');
+
+  const refreshWalletData = () => {
+    setWalletTransactions(getAllTransactions());
+    setWithdrawalRequests(getAllWithdrawals());
+    setApprovalPaymentRequests(getAllApprovalPaymentRequests());
+    const list = getAllUsers();
+    setUsersList(list);
+    if (currentUser) {
+      const freshUser = list.find(u => u.id === currentUser.id);
+      if (freshUser) setCurrentUser(freshUser);
+    }
+  };
+
+  const refreshUsersList = () => {
+    const list = getAllUsers();
+    setUsersList(list);
+    if (currentUser) {
+      const freshUser = list.find(u => u.id === currentUser.id);
+      if (freshUser) setCurrentUser(freshUser);
+    }
+  };
+
   const refreshMediaItems = async () => {
     try {
       const items = await getAllMediaItems();
@@ -137,6 +262,55 @@ export const CourseProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       console.error('Error loading media items', e);
     }
   };
+
+  // Real-time Firestore Listeners
+  useEffect(() => {
+    if (!db) return;
+    try {
+      // Sync Users
+      const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
+        if (!snapshot.empty) {
+          const remoteUsers: AppUser[] = [];
+          snapshot.forEach(doc => {
+            remoteUsers.push(doc.data() as AppUser);
+          });
+          if (remoteUsers.length > 0) {
+            setUsersList(remoteUsers);
+            if (currentUser) {
+              const fresh = remoteUsers.find(u => u.id === currentUser.id);
+              if (fresh) setCurrentUser(fresh);
+            }
+          }
+        }
+      }, (err) => console.warn('Users online listener notice:', err));
+
+      // Sync Payment Requests
+      const unsubPayments = onSnapshot(collection(db, 'approvalPaymentRequests'), (snapshot) => {
+        if (!snapshot.empty) {
+          const list: ApprovalPaymentRequest[] = [];
+          snapshot.forEach(doc => list.push(doc.data() as ApprovalPaymentRequest));
+          setApprovalPaymentRequests(list.sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()));
+        }
+      }, (err) => console.warn('Payments listener notice:', err));
+
+      // Sync Withdrawals
+      const unsubWithdrawals = onSnapshot(collection(db, 'withdrawalRequests'), (snapshot) => {
+        if (!snapshot.empty) {
+          const list: WithdrawalRequest[] = [];
+          snapshot.forEach(doc => list.push(doc.data() as WithdrawalRequest));
+          setWithdrawalRequests(list);
+        }
+      }, (err) => console.warn('Withdrawals listener notice:', err));
+
+      return () => {
+        unsubUsers();
+        unsubPayments();
+        unsubWithdrawals();
+      };
+    } catch (e) {
+      console.warn('Firestore real-time subscription error:', e);
+    }
+  }, [currentUser?.id]);
 
   // Initial load
   useEffect(() => {
@@ -151,7 +325,7 @@ export const CourseProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         if (parsed.bookmarks) setBookmarks(parsed.bookmarks);
         if (parsed.notes) setNotes(parsed.notes);
         if (parsed.practiceLogs) setPracticeLogs(parsed.practiceLogs);
-        if (parsed.studentProfile) setStudentProfile({ ...defaultProfile, ...parsed.studentProfile });
+        if (parsed.studentProfile) setStudentProfile({ ...blankProfile, ...parsed.studentProfile });
         if (parsed.examResult) setExamResult(parsed.examResult);
         if (parsed.certificate) setCertificate(parsed.certificate);
         if (parsed.readingTheme) setReadingTheme(parsed.readingTheme);
@@ -160,10 +334,29 @@ export const CourseProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     } catch (e) {
       console.error('Failed to load state from localStorage', e);
     }
+
+    const session = getCurrentSession();
+    if (session) {
+      setCurrentUser(session);
+      if (normalizePhone(session.phone) === MASTER_ADMIN_PHONE) {
+        setActiveTab('admin');
+      }
+      setStudentProfile(prev => ({
+        ...prev,
+        fullName: session.fullName || prev.fullName,
+        fatherName: session.fatherName || prev.fatherName,
+        dob: session.dob || prev.dob,
+        age: session.age || prev.age,
+        phone: session.phone || prev.phone,
+      }));
+    }
+
     refreshMediaItems();
+    refreshUsersList();
+    refreshWalletData();
   }, []);
 
-  // Save to local storage
+  // Save state to local storage
   useEffect(() => {
     try {
       const stateToSave = {
@@ -199,14 +392,175 @@ export const CourseProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     fontSize,
   ]);
 
+  // Auth methods
+  const loginWithPhoneOtp = (phone: string, otp: string, profileData?: any) => {
+    const res = authenticateWithPhoneAndOtp(phone, otp, profileData);
+    if (res.success && res.user) {
+      setCurrentUser(res.user);
+      setStudentProfile(prev => ({
+        ...prev,
+        fullName: res.user!.fullName || prev.fullName,
+        fatherName: res.user!.fatherName || prev.fatherName,
+        dob: res.user!.dob || prev.dob,
+        age: res.user!.age || prev.age,
+        phone: res.user!.phone || prev.phone,
+      }));
+      refreshUsersList();
+      refreshWalletData();
+      if (normalizePhone(res.user.phone) === MASTER_ADMIN_PHONE || res.user.role === 'admin') {
+        setActiveTab('admin');
+      } else {
+        setActiveTab('ebook');
+      }
+    }
+    return res;
+  };
+
+  const logout = () => {
+    setCurrentSession(null);
+    setCurrentUser(null);
+    setActiveTab('ebook');
+  };
+
+  const approveUser = (userId: string) => {
+    const res = updateUserStatusInDb(userId, 'active');
+    refreshUsersList();
+    refreshWalletData();
+    return res;
+  };
+
+  const blockUser = (userId: string) => {
+    updateUserStatusInDb(userId, 'blocked');
+    refreshUsersList();
+    refreshWalletData();
+  };
+
+  const unblockUser = (userId: string) => {
+    updateUserStatusInDb(userId, 'active');
+    refreshUsersList();
+    refreshWalletData();
+  };
+
+  const deleteUser = (userId: string) => {
+    deleteUserFromDb(userId);
+    refreshUsersList();
+    refreshWalletData();
+  };
+
+  const toggleUserRole = (userId: string) => {
+    const target = usersList.find(u => u.id === userId);
+    if (!target) return;
+    const newRole: UserRole = target.role === 'admin' ? 'student' : 'admin';
+    updateUserRoleInDb(userId, newRole);
+    refreshUsersList();
+  };
+
+  const addUserByAdmin = (user: Partial<AppUser> & { phone: string; fullName: string }) => {
+    const created = addOrUpdateUserFromAdmin(user);
+    refreshUsersList();
+    refreshWalletData();
+    return created;
+  };
+
+  // Submit payment screenshot & UTR for candidate activation
+  const submitApprovalPayment = (data: {
+    candidateName: string;
+    candidatePhone: string;
+    amount: number;
+    utrNumber: string;
+    screenshotUrl?: string;
+  }) => {
+    if (!currentUser) return { success: false, message: 'कृपया पहले लॉगिन करें।' };
+    const res = submitApprovalPaymentRequest({
+      referrerUserId: currentUser.id,
+      referrerName: currentUser.fullName,
+      referrerPhone: currentUser.phone,
+      candidateName: data.candidateName,
+      candidatePhone: data.candidatePhone,
+      amount: data.amount,
+      utrNumber: data.utrNumber,
+      screenshotUrl: data.screenshotUrl,
+    });
+    refreshWalletData();
+    return res;
+  };
+
+  const adminApprovePaymentAndCandidate = (paymentId: string, notes?: string) => {
+    const res = approvePaymentAndActivateCandidateInDb(paymentId, notes);
+    refreshUsersList();
+    refreshWalletData();
+    return res;
+  };
+
+  // Wallet and MLM operations
+  const adminAdjustWallet = (userId: string, change: number, reason: string, exactOverride?: number) => {
+    adjustUserWalletInDb(userId, change, reason, exactOverride);
+    refreshUsersList();
+    refreshWalletData();
+  };
+
+  const adminResetWalletToZero = (userId: string) => {
+    resetUserWalletToZero(userId);
+    refreshUsersList();
+    refreshWalletData();
+  };
+
+  const requestWithdrawal = (
+    amount: number, 
+    withdrawalType: 'upi' | 'bank' | 'qr', 
+    details: {
+      upiId?: string;
+      accountHolderName?: string;
+      accountNumber?: string;
+      ifscCode?: string;
+      bankName?: string;
+      qrCodeUrl?: string;
+    }
+  ) => {
+    if (!currentUser) return { success: false, message: 'कृपया पहले लॉगिन करें।' };
+    const res = requestPayoutFromWallet(currentUser.id, amount, withdrawalType, details);
+    refreshUsersList();
+    refreshWalletData();
+    return res;
+  };
+
+  const adminProcessWithdrawal = (requestId: string, status: 'approved' | 'rejected', notes?: string) => {
+    processWithdrawalRequestInDb(requestId, status, notes);
+    refreshUsersList();
+    refreshWalletData();
+  };
+
   const updateStudentProfile = (profile: Partial<StudentProfile>) => {
-    setStudentProfile(prev => ({ ...prev, ...profile }));
+    setStudentProfile(prev => {
+      const updated = { ...prev, ...profile };
+      if (currentUser) {
+        const syncedUser: AppUser = {
+          ...currentUser,
+          fullName: updated.fullName || currentUser.fullName,
+          fatherName: updated.fatherName || currentUser.fatherName,
+          dob: updated.dob || currentUser.dob,
+          age: updated.age || currentUser.age,
+          photoUrl: updated.photoUrl || currentUser.photoUrl,
+        };
+        addOrUpdateUserFromAdmin(syncedUser);
+        setCurrentUser(syncedUser);
+        setCurrentSession(syncedUser);
+      }
+      return updated;
+    });
   };
 
   const toggleChapterComplete = (id: string) => {
-    setCompletedChapters(prev =>
-      prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]
-    );
+    setCompletedChapters(prev => {
+      const updated = prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id];
+      if (currentUser) {
+        addOrUpdateUserFromAdmin({
+          ...currentUser,
+          completedChaptersCount: updated.length,
+        });
+      }
+      return updated;
+    });
   };
 
   const toggleVideoComplete = (id: string) => {
@@ -260,7 +614,6 @@ export const CourseProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
   const saveExamResult = (score: number, total: number = 50) => {
     const percentage = Math.round((score / total) * 100);
-    // User requested: Certificate is issued for any score upon completing the exam
     const passed = true;
     const result = {
       score,
@@ -270,6 +623,13 @@ export const CourseProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       completedAt: new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
     };
     setExamResult(result);
+    if (currentUser) {
+      addOrUpdateUserFromAdmin({
+        ...currentUser,
+        examPassed: true,
+        examScore: score,
+      });
+    }
   };
 
   const issueCertificate = (
@@ -286,11 +646,11 @@ export const CourseProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     ageArg?: string,
     photoUrlArg?: string
   ) => {
-    let name = studentProfile.fullName || 'Valued Spa Trainee';
-    let father = studentProfile.fatherName || '';
-    let dob = studentProfile.dob || '';
-    let age = studentProfile.age || '';
-    let photo = studentProfile.photoUrl || '';
+    let name = studentProfile.fullName || currentUser?.fullName || 'Certified Spa Therapist';
+    let father = studentProfile.fatherName || currentUser?.fatherName || '';
+    let dob = studentProfile.dob || currentUser?.dob || '';
+    let age = studentProfile.age || currentUser?.age || '';
+    let photo = studentProfile.photoUrl || currentUser?.photoUrl || '';
     let academy = studentProfile.academyName || 'Spa Hub International Wellness Academy';
 
     if (typeof detailsOrName === 'string') {
@@ -359,7 +719,25 @@ export const CourseProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     }
   };
 
-  // Calculate weighted total progress across 11 chapters and certification exam
+  // User's referral network
+  const myReferrals = currentUser
+    ? usersList.filter(u => 
+        u.referredBy && (
+          u.referredBy.toUpperCase() === (currentUser.referralCode || '').toUpperCase() ||
+          normalizePhone(u.referredBy) === normalizePhone(currentUser.phone)
+        )
+      )
+    : [];
+
+  const walletBalance = currentUser?.walletBalance || 0;
+  const totalEarned = currentUser?.totalEarned || 0;
+  const referralCode = currentUser?.referralCode || (currentUser ? `SPA${normalizePhone(currentUser.phone).slice(-4)}` : '');
+
+  const userTransactions = currentUser
+    ? walletTransactions.filter(t => t.userId === currentUser.id)
+    : [];
+
+  // Calculate weighted total progress
   const chapterProgress = chaptersData.length > 0 ? (completedChapters.length / chaptersData.length) * 70 : 0;
   const examProgress = examResult ? 30 : 0;
   const totalProgressPercentage = Math.min(100, Math.round(chapterProgress + examProgress));
@@ -375,6 +753,37 @@ export const CourseProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         setSelectedChapterId,
         selectedVideoId,
         setSelectedVideoId,
+        
+        currentUser,
+        isLoggedIn,
+        isAdmin,
+        loginWithPhoneOtp,
+        logout,
+        usersList,
+        refreshUsersList,
+        approveUser,
+        blockUser,
+        unblockUser,
+        deleteUser,
+        toggleUserRole,
+        addUserByAdmin,
+
+        // MLM & Wallet
+        walletBalance,
+        totalEarned,
+        referralCode,
+        myReferrals,
+        walletTransactions: userTransactions,
+        withdrawalRequests,
+        approvalPaymentRequests,
+        submitApprovalPayment,
+        adminApprovePaymentAndCandidate,
+        requestWithdrawal,
+        adminAdjustWallet,
+        adminResetWalletToZero,
+        adminProcessWithdrawal,
+        refreshWalletData,
+
         completedChapters,
         toggleChapterComplete,
         completedVideos,

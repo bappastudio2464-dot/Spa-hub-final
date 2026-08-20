@@ -1,0 +1,107 @@
+{
+  "entities": {
+    "users": {
+      "title": "AppUser",
+      "description": "User profile with authentication and MLM wallet data",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "phone": { "type": "string", "maxLength": 15 },
+        "fullName": { "type": "string", "maxLength": 100 },
+        "fatherName": { "type": "string", "maxLength": 100 },
+        "dob": { "type": "string", "maxLength": 20 },
+        "age": { "type": "string", "maxLength": 5 },
+        "gender": { "type": "string", "maxLength": 20 },
+        "city": { "type": "string", "maxLength": 100 },
+        "role": { "type": "string", "enum": ["admin", "student"] },
+        "status": { "type": "string", "enum": ["active", "pending", "blocked"] },
+        "registeredAt": { "type": "string", "maxLength": 50 },
+        "lastLoginAt": { "type": "string", "maxLength": 50 },
+        "referralCode": { "type": "string", "maxLength": 20 },
+        "referredBy": { "type": "string", "maxLength": 20 },
+        "walletBalance": { "type": "number" },
+        "totalEarned": { "type": "number" },
+        "totalReferralsCount": { "type": "number" }
+      },
+      "required": ["id", "phone", "fullName", "role", "status", "referralCode"]
+    },
+    "walletTransactions": {
+      "title": "WalletTransaction",
+      "description": "Transaction audit records for digital wallet",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "type": { "type": "string", "enum": ["referral_bonus", "admin_credit", "admin_debit", "admin_reset", "payout_withdrawal"] },
+        "amount": { "type": "number" },
+        "description": { "type": "string", "maxLength": 200 },
+        "timestamp": { "type": "string", "maxLength": 50 },
+        "date": { "type": "string", "maxLength": 30 }
+      },
+      "required": ["id", "userId", "type", "amount", "description", "timestamp"]
+    },
+    "withdrawalRequests": {
+      "title": "WithdrawalRequest",
+      "description": "User payout withdrawal requests",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "userName": { "type": "string", "maxLength": 100 },
+        "userPhone": { "type": "string", "maxLength": 15 },
+        "amount": { "type": "number" },
+        "withdrawalType": { "type": "string", "enum": ["upi", "bank", "qr"] },
+        "upiId": { "type": "string", "maxLength": 100 },
+        "accountHolderName": { "type": "string", "maxLength": 100 },
+        "accountNumber": { "type": "string", "maxLength": 50 },
+        "ifscCode": { "type": "string", "maxLength": 30 },
+        "bankName": { "type": "string", "maxLength": 100 },
+        "qrCodeUrl": { "type": "string", "maxLength": 500000 },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "requestDate": { "type": "string", "maxLength": 50 },
+        "adminNotes": { "type": "string", "maxLength": 200 }
+      },
+      "required": ["id", "userId", "userName", "userPhone", "amount", "withdrawalType", "status", "requestDate"]
+    },
+    "approvalPaymentRequests": {
+      "title": "ApprovalPaymentRequest",
+      "description": "Candidate activation payment proof submissions with UTR & Screenshot",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "referrerUserId": { "type": "string", "maxLength": 128 },
+        "referrerName": { "type": "string", "maxLength": 100 },
+        "referrerPhone": { "type": "string", "maxLength": 15 },
+        "candidateName": { "type": "string", "maxLength": 100 },
+        "candidatePhone": { "type": "string", "maxLength": 15 },
+        "candidateReferralCode": { "type": "string", "maxLength": 20 },
+        "amount": { "type": "number" },
+        "utrNumber": { "type": "string", "maxLength": 100 },
+        "screenshotUrl": { "type": "string", "maxLength": 500000 },
+        "adminUpiId": { "type": "string", "maxLength": 100 },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "submittedAt": { "type": "string", "maxLength": 50 },
+        "adminNotes": { "type": "string", "maxLength": 200 }
+      },
+      "required": ["id", "referrerUserId", "candidateName", "candidatePhone", "amount", "utrNumber", "adminUpiId", "status", "submittedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "users",
+      "description": "User profile records with wallet balances"
+    },
+    "/walletTransactions/{transactionId}": {
+      "schema": "walletTransactions",
+      "description": "Audit trail for all wallet credits and debits"
+    },
+    "/withdrawalRequests/{requestId}": {
+      "schema": "withdrawalRequests",
+      "description": "User payout withdrawal requests"
+    },
+    "/approvalPaymentRequests/{requestId}": {
+      "schema": "approvalPaymentRequests",
+      "description": "Payment proof submissions for candidate approval"
+    }
+  }
+}
